@@ -1,0 +1,76 @@
+services:
+  nginx:
+    image: nginx:stable-alpine
+    container_name: nginx
+    ports:
+      - "8000:80"
+      - "443:443"
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/nginx.conf
+      #- ./entrust:/etc/nginx/ssl # Mount the SSL certificates
+      # command: /bin/sh -c "chown -R www-data:www-data /var/www/html && nginx -g 'daemon off;'"
+    command: /bin/sh -c "chown -R root:root /var/www/html && nginx -g 'daemon off;'"
+    depends_on:
+      - php
+      - redis
+      - mariadb
+    networks:
+      - ronnie_network
+
+  redis:
+    image: "redis:alpine"
+    container_name: redis
+    ports:
+      - "${FORWARD_REDIS_PORT:-6379}:6379"
+    volumes:
+      - ./src:/var/www/html
+    networks:
+      - ronnie_network
+
+  mariadb:
+    image: mariadb
+    container_name: mariadb
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "3307:3307"
+    environment:
+      MARIADB_DATABASE: backan_ronnie
+      MARIADB_USER: root
+      MARIADB_PASSWORD: fXA4!@3#x6pS68q9k
+      MARIADB_ROOT_PASSWORD: fXA4!@3#x6pS68q9krOOT
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mariadb
+    volumes:
+      - ./mariadb_data:/var/lib/mysql
+    networks:
+      - ronnie_network
+
+  php:
+    build:
+      context: .
+      dockerfile: ./docker/php/Dockerfile
+    container_name: ronnie
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    ports:
+      - "9000:9000"
+    networks:
+      - ronnie_network
+
+  composer:
+    image: composer:latest
+    container_name: composer
+    depends_on:
+      - php
+    networks:
+      - ronnie_network
+
+networks:
+  ronnie_network:
+
+
+volumes:
+  mariadb_data:
